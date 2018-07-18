@@ -128,7 +128,8 @@ from sklearn.model_selection import train_test_split
 X_train, X_test, y_train, y_test = train_test_split(train_data, lbl_transf, test_size=0.1, random_state=42)
 
 # Initialize CatBoostClassifier
-model = CatBoostClassifier(iterations=2, learning_rate=1, depth=2, loss_function='MultiClass')
+# model = CatBoostClassifier(iterations=2, learning_rate=1, depth=2, loss_function='MultiClass')
+model = CatBoostClassifier(iterations=200, learning_rate=0.05, depth=5, loss_function='MultiClass')
 
 # Fit model
 model.fit(X_train, y_train)
