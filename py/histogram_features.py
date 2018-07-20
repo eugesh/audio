@@ -129,7 +129,7 @@ X_train, X_test, y_train, y_test = train_test_split(train_data, lbl_transf, test
 
 # Initialize CatBoostClassifier
 # model = CatBoostClassifier(iterations=2, learning_rate=1, depth=2, loss_function='MultiClass')
-model = CatBoostClassifier(iterations=200, learning_rate=0.05, depth=5, loss_function='MultiClass')
+model = CatBoostClassifier(iterations=5000, learning_rate=0.03, depth=6, loss_function='MultiClass')
 
 # Fit model
 model.fit(X_train, y_train)
@@ -142,4 +142,7 @@ preds = model.predict(X_test)
 preds_proba = model.predict_proba(X_test)
 
 # Comparison.
-np.nonzero(np.transpose(preds)[0] - y_test)[0].shape
+acc = np.nonzero(np.transpose(preds)[0] - y_test)[0].shape[0] / y_test.shape[0]
+
+# save results
+catboost.save_model(model, model_50000iter_rate_003_depth6.cbm)
