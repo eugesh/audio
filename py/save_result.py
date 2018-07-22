@@ -4,9 +4,11 @@ import librosa
 import glob
 import matplotlib.pyplot as plt
 
-test_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/audio_tmp_test/'
+
+test_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/test/'
 meta_filetrain_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/meta/meta.txt'
 path_model = 'model_50000iter_rate_003_depth6.cbm'
+
 
 def read_all_and_calc_feat(dirname):
     '''
@@ -39,35 +41,31 @@ def read_all_and_calc_feat(dirname):
                             chroma_stft_hist[0], chroma_cq_hist[0], spectral_centroid_hist[0]])
     return feat_map
 
+
 ## Load all audio files and calculate features.
-feat_map_test = read_all_and_calc_feat(test_path + '*.wav')
+feat_map_test_res = read_all_and_calc_feat(test_path + '*.wav')
 
-## Read metadata: all unique labels.
-f = open(meta_filetrain_path)
-meta_dict_unique = {}
-for line in f:
-    line = line.split()
-    label_str = line[4]
-    meta_dict_unique[label_str]
+test_data_res = []
+for feat in feat_map_test_res:
+    test_data_res.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7])))
 
-# Form features and labels vectors.
-# Labels: 0 - background, 1 - bags, 2 - door, 3 - keyboard, 4 - knocking_door, 5 - ring, 6 - speech, 7 - tool;
-test_data = []
-for feat in feat_map_test:
-    test_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7])))
-
+# lbl_map_test_res = ['background', 'bags', 'door', 'keyboard', 'knocking_door', 'ring', 'speech', 'tool', 'unknown']
 
 ##### testing
+import catboost
 from catboost import Pool, CatBoostClassifier
 from sklearn import preprocessing
 
-model = catboost.CatBoostClassifier.load_model(path_model)
+# model = catboost.CatBoostClassifier.load_model(path_model)
 
-le = preprocessing.LabelEncoder()
-le.fit(labels)
-lbl_transf = le.transform(labels)
-preds = model.predict(X_test)
-preds_proba = model.predict_proba(X_test, path_model)
+preds_test_res = model.predict(test_data_res)
+preds_proba_test_res = model.predict_proba(test_data_res)
 
-# Comparison.
-# acc = np.nonzero(np.transpose(preds)[0] - y_test)[0].shape[0] / y_test.shape[0]
+# Save in file.
+i=0
+with open('result.txt', 'w') as f:
+    for feat in feat_map_test_res:
+        name = feat[0].split('/')[-1]
+        lbl = np.int(preds_test_res[i][0])
+        print(name, preds_proba_test_res[i][lbl], le.classes_[lbl],file=f)
+        i = i + 1

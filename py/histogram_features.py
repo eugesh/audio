@@ -36,6 +36,7 @@ def read_all_and_calc_feat(dirname):
             tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr) # Feat
             # Feat #5 Zero crossing rate.
             zcr = np.nonzero(librosa.zero_crossings(y))
+            # tonnetz = librosa.feature.tonnetz(y=None, sr=22050, chroma=None)
 
             feat_map.append([file, tempo, zcr[0].shape[0], beat_frames.shape[0], beat_frames.shape[0]*1e5/y.shape[0],
                             chroma_stft_hist[0], chroma_cq_hist[0], spectral_centroid_hist[0]])
@@ -125,11 +126,11 @@ lbl_transf = le.transform(labels)
 
 # Split test/train set
 from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(train_data, lbl_transf, test_size=0.1, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(train_data, lbl_transf, test_size=0., random_state=42)
 
 # Initialize CatBoostClassifier
 # model = CatBoostClassifier(iterations=2, learning_rate=1, depth=2, loss_function='MultiClass')
-model = CatBoostClassifier(iterations=5000, learning_rate=0.03, depth=6, loss_function='MultiClass')
+model = CatBoostClassifier(iterations=50000, learning_rate=0.03, depth=7, loss_function='MultiClass')
 
 # Fit model
 model.fit(X_train, y_train)
@@ -145,4 +146,4 @@ preds_proba = model.predict_proba(X_test)
 acc = np.nonzero(np.transpose(preds)[0] - y_test)[0].shape[0] / y_test.shape[0]
 
 # save results
-catboost.save_model(model, model_50000iter_rate_003_depth6.cbm)
+catboost.CatBoostClassifier.save_model(model, model_50000iter_rate_003_depth6.cbm)

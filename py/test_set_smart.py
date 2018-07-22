@@ -4,7 +4,8 @@ import librosa
 import glob
 import matplotlib.pyplot as plt
 
-test_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/audio_tmp_test/'
+path_to_model = 'model_50000iter_003rate_6depth.cbm'
+test_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/test/'
 meta_filetrain_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/meta/meta.txt'
 
 def read_all_and_calc_feat(dirname):
@@ -42,30 +43,97 @@ def read_all_and_calc_feat(dirname):
 feat_map_test = read_all_and_calc_feat(test_path + '*.wav')
 
 ## Read metadata.
-f = open(meta_filetrain_path)
-meta_dict = {}
-for line in f:
-    line = line.split()
-    filename = line[0]
-    label_str = line[4]
-    meta_dict[filename] = label_str
+
 
 # Form features and labels vectors.
 # Labels: 0 - background, 1 - bags, 2 - door, 3 - keyboard, 4 - knocking_door, 5 - ring, 6 - speech, 7 - tool;
+lbl_map = ['background', 'bags', 'door', 'keyboard', 'knocking_door', 'ring', 'speech', 'tool']#, 'unknown']
+lbl_map = ['unknown']
+lbl_map = ['background', 'bags', 'door', 'keyboard', 'knocking_door', 'ring', 'speech', 'tool', 'unknown']
+# test_data = []
+# for feat in feat_map_test:
+#     if feat[0].contains('background')
+#         labels.append('background')
+#     if feat[0].contains('bags')
+#         labels.append('bags')
+#     if feat[0].contains('door')
+#         labels.append('door')
+#     if feat[0].contains('keyboard')
+#         labels.append('keyboard')
+#     if feat[0].contains('knocking_door')
+#         labels.append('knocking_door')
+#     if feat[0].contains('ring')
+#         labels.append('ring')
+#     if feat[0].contains('tool')
+#         labels.append('tool')
+#     if feat[0].contains('unknown')
+#         labels.append('unknown')
+#     print(labels[-1])
+#     test_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7])))
+
 test_data = []
+labels_test = []
 for feat in feat_map_test:
-    test_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7])))
+    name = feat[0].split('/')[-1]
+    for lbl in lbl_map:
+        if name.find(lbl) == 0:
+            labels_test.append(lbl)
+            test_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7])))
 
 
 ##### testing
 from catboost import Pool, CatBoostClassifier
+from CatBoostClassifier import load_model
 from sklearn import preprocessing
 
-le = preprocessing.LabelEncoder()
-le.fit(labels)
-lbl_transf = le.transform(labels)
-preds = model.predict(X_test)
-preds_proba = model.predict_proba(X_test)
+model = CatBoostClassifier.load_model(path_model)
+
+le_test = preprocessing.LabelEncoder()
+le_test.fit(labels_test)
+lbl_test_transf = le_test.transform(labels_test)
+preds_test = model.predict(test_data)
+preds_proba_test = model.predict_proba(test_data)
 
 # Comparison.
-# acc = np.nonzero(np.transpose(preds)[0] - y_test)[0].shape[0] / y_test.shape[0]
+acc_test = np.nonzero(np.transpose(preds_test)[0] - lbl_test_transf)[0].shape[0] / len(labels_test)
+acc_test = 1 - acc_test
+# Build area under precision/prob(false alarm)
+true_prob = []
+for i in range(preds.shape[0]):
+    if lbl_test_transf[i] == 8:
+        true_prob.append(1 - preds_proba_test[i].max())
+    else:
+        true_prob.append(preds_proba_test[i][lbl_transf[i]])
+
+
+acc_plot = []
+false_alarm_prob = []
+preds_th = []
+fa_th = []
+threshs = np.linspace(0, 1, 101)
+
+for th in threshs:
+    for i in range(preds.shape[0]):
+        if lbl_transf[i] == 8:
+            if preds_proba[i].max() > th:
+                preds_th.append(1)
+                fa_th.append(1)
+            else:
+                preds_th.append(0)
+        else:
+            if preds_proba[i][lbl_transf[i]] > th:
+                preds_th.append(1)
+            else:
+                preds_th.append(0)
+            if preds_proba[i][np.array(preds_proba[i]).argmax()] == lbl_transf[i]:
+                1
+            else:
+                if preds_proba[i][np.array(preds_proba[i]).argmax()] > th:
+                    fa_th.append(1)
+    acc_plot.append(np.array(preds_th).sum() / len(preds_th))
+    false_alarm_prob.append(np.array(fa_th).sum())
+
+import matplotlib.pyplot as plt
+
+plt.plot(false_alarm_prob, acc_plot)
+plt.show()
