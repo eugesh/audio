@@ -20,6 +20,7 @@ def read_all_and_calc_feat(dirname):
         print("file = ", file)
         # Read file.
         y, sr = librosa.load(file)
+        y = y/(y.max()-y.min())
         if y is not None:
             # Feat #1 - Chromagram's hist.
             chroma_stft = librosa.feature.chroma_stft(y=y, sr=sr, n_chroma=12, n_fft=4096)

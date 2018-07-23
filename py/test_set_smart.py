@@ -20,6 +20,7 @@ def read_all_and_calc_feat(dirname):
         print("file = ", file)
         # Read file.
         y, sr = librosa.load(file)
+        y = y/(y.max()-y.min())
         if y is not None:
             # Feat #1 - Chromagram's hist.
             chroma_stft = librosa.feature.chroma_stft(y=y, sr=sr, n_chroma=12, n_fft=4096)
@@ -34,9 +35,16 @@ def read_all_and_calc_feat(dirname):
             tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr) # Feat
             # Feat #5 Zero crossing rate.
             zcr = np.nonzero(librosa.zero_crossings(y))
+            # Tonnetz
+            tonnetz = librosa.feature.tonnetz(y=y, sr=sr, chroma=None)
+            tonnetz_hist = np.histogram(tonnetz)
+            # Separate harmonics and percussives into two waveforms
+            y_harmonic, y_percussive = librosa.effects.hpss(y)
+            y_harm_hist = np.histogram(y_harmonic)
+            y_perc_hist = np.histogram(y_percussive)
 
             feat_map.append([file, tempo, zcr[0].shape[0], beat_frames.shape[0], beat_frames.shape[0]*1e5/y.shape[0],
-                            chroma_stft_hist[0], chroma_cq_hist[0], spectral_centroid_hist[0]])
+                            chroma_stft_hist[0], chroma_cq_hist[0], spectral_centroid_hist[0], tonnetz_hist[0], y_harm_hist[0], y_perc_hist[0]])
     return feat_map
 
 ## Load all audio files and calculate features.
@@ -48,7 +56,7 @@ feat_map_test = read_all_and_calc_feat(test_path + '*.wav')
 # Form features and labels vectors.
 # Labels: 0 - background, 1 - bags, 2 - door, 3 - keyboard, 4 - knocking_door, 5 - ring, 6 - speech, 7 - tool;
 lbl_map = ['background', 'bags', 'door', 'keyboard', 'knocking_door', 'ring', 'speech', 'tool']#, 'unknown']
-lbl_map = ['unknown']
+#lbl_map = ['unknown']
 lbl_map = ['background', 'bags', 'door', 'keyboard', 'knocking_door', 'ring', 'speech', 'tool', 'unknown']
 # test_data = []
 # for feat in feat_map_test:
@@ -78,21 +86,24 @@ for feat in feat_map_test:
     for lbl in lbl_map:
         if name.find(lbl) == 0:
             labels_test.append(lbl)
-            test_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7])))
+            test_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7], feat[8], feat[9], feat[10])))
 
 
 ##### testing
 from catboost import Pool, CatBoostClassifier
-from CatBoostClassifier import load_model
+# from CatBoostClassifier import load_model
 from sklearn import preprocessing
 
-model = CatBoostClassifier.load_model(path_model)
+# model = CatBoostClassifier.load_model(path_model)
 
 le_test = preprocessing.LabelEncoder()
 le_test.fit(labels_test)
 lbl_test_transf = le_test.transform(labels_test)
 preds_test = model.predict(test_data)
 preds_proba_test = model.predict_proba(test_data)
+
+preds_test_aug = model_aug.predict(test_data)
+preds_proba_test_aug = model_aug.predict_proba(test_data)
 
 # Comparison.
 acc_test = np.nonzero(np.transpose(preds_test)[0] - lbl_test_transf)[0].shape[0] / len(labels_test)

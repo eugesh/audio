@@ -3,12 +3,17 @@ import scipy
 import librosa
 import glob
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import normalize
 
 # train_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/audio_tmp/'
-train_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/audio_tmp_train/'
-# train_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/audio/'
+# train_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/audio_tmp_train/'
+train_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/audio/'
 # test_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/audio_tmp_test/'
 meta_filetrain_path = '/home/evgeny/data/ml_sum_school/data_v_7_stc/meta/meta.txt'
+
+def norm(x):
+    x = x / (x.max() - x.min())
+    return (x - x.min())
 
 def read_all_and_calc_feat(dirname):
     '''
@@ -22,26 +27,43 @@ def read_all_and_calc_feat(dirname):
         print("file = ", file)
         # Read file.
         y, sr = librosa.load(file)
+        y = y/(y.max()-y.min())
         if y is not None:
             # Feat #1 - Chromagram's hist.
-            chroma_stft = librosa.feature.chroma_stft(y=y, sr=sr, n_chroma=12, n_fft=4096)
+            chroma_stft = norm(librosa.feature.chroma_stft(y=y, sr=sr, n_chroma=12, n_fft=4096))
             chroma_stft_hist = np.histogram(chroma_stft)
             # Feat #2  CQT hist.
             chroma_cq = librosa.feature.chroma_cqt(y=y, sr=sr)
-            chroma_cq_hist = np.histogram(chroma_cq)
+            chroma_cq_hist = np.histogram(norm(chroma_cq))
             # Feat #3 Gaussian mixtures centroid.
             spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr, S=None, n_fft=2048, hop_length=chroma_stft.shape[1], freq=None)
-            spectral_centroid_hist = np.histogram(spectral_centroid)
+            spectral_centroid_hist = np.histogram(norm(spectral_centroid))
             # Feat #4 Tempo, beat count, beats per length.
             tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr) # Feat
             # Feat #5 Zero crossing rate.
             zcr = np.nonzero(librosa.zero_crossings(y))
             # Tonnetz
             tonnetz = librosa.feature.tonnetz(y=y, sr=sr, chroma=None)
-            tonnetz_hist = np.histogram(tonnetz)
+            tonnetz_hist = np.histogram(norm(tonnetz))
+            # Separate harmonics and percussives into two waveforms
+            y_harmonic, y_percussive = librosa.effects.hpss(y)
+            y_harm_hist = np.histogram(norm(y_harmonic))
+            y_perc_hist = np.histogram(norm(y_percussive))
+            # Tempogram.
+            # librosa.feature.tempogram()
+            mfcc = librosa.feature.mfcc(y=y, sr=sr)
+            mfcc_hist = np.histogram(mfcc)
+            #d_mfcc=librosa.feature.delta(norm(mfcc))
+            #d_mfcc_hist = np.histogram(d_mfcc)
+            # Hist stft
+            delta_stft = norm(librosa.feature.delta(chroma_stft))
+            d_stft_hist = np.histogram(delta_stft)
+
+            mel = norm(librosa.feature.melspectrogram(y=y, sr=sr))
+            mel_hist = np.histogram(mel)
 
             feat_map.append([file, tempo, zcr[0].shape[0], beat_frames.shape[0], beat_frames.shape[0]*1e5/y.shape[0],
-                            chroma_stft_hist[0], chroma_cq_hist[0], spectral_centroid_hist[0], tonnetz_hist[0]])
+                            chroma_stft_hist[0], chroma_cq_hist[0], spectral_centroid_hist[0], tonnetz_hist[0], y_harm_hist[0], y_perc_hist[0], mfcc_hist[0], d_stft_hist[0], mel_hist[0]])
     return feat_map
 
 def read_all_and_calc_feat_and_disp(dirname):
@@ -103,7 +125,7 @@ labels = []
 for feat in feat_map:
     label = meta_dict[feat[0].split('/')[-1]]
     print(label)
-    train_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7], feat[8])))
+    train_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7], feat[8], feat[9], feat[10], feat[11], feat[12], feat[13])))
     labels.append(label)
 
 # Read testing set.
@@ -132,7 +154,7 @@ X_train, X_test, y_train, y_test = train_test_split(train_data, lbl_transf, test
 
 # Initialize CatBoostClassifier
 # model = CatBoostClassifier(iterations=2, learning_rate=1, depth=2, loss_function='MultiClass')
-model = CatBoostClassifier(iterations=5000, learning_rate=0.01, depth=7, loss_function='MultiClass')
+model = CatBoostClassifier(iterations=5000, learning_rate=0.03, depth=6, loss_function='MultiClass')
 
 # Fit model
 model.fit(X_train, y_train)
