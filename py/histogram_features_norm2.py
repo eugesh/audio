@@ -67,12 +67,18 @@ def read_all_and_calc_feat(dirname):
             o_env = librosa.onset.onset_strength(y, sr=sr)
             # times = librosa.frames_to_time(np.arange(len(o_env)), sr=sr)
             onset_frames = librosa.onset.onset_detect(onset_envelope=o_env, sr=sr)
-            os=[]
+            osh=[]
+            osm=[]
+            osl=[]
             for o in o_env:
+                if o > 0.25:
+                    osl.append(o)
                 if o > 0.5:
-                    os.append(o)
+                    osm.append(o)
+                if o > 0.75:
+                    osh.append(o)
 
-            feat_map.append([file, tempo, zcr[0].shape[0], beat_frames.shape[0], beat_frames.shape[0]*1e5/y.shape[0], o_env.shape[0], len(os),
+            feat_map.append([file, tempo, zcr[0].shape[0], beat_frames.shape[0], beat_frames.shape[0]*1e5/y.shape[0], o_env.shape[0], len(osl), len(osm), len(osh), onset_frames.shape[0],
                             chroma_stft_hist[0], chroma_cq_hist[0], spectral_centroid_hist[0], tonnetz_hist[0], y_harm_hist[0], y_perc_hist[0], mfcc_hist[0], mel_hist[0]])
     return feat_map
 
@@ -135,7 +141,7 @@ labels = []
 for feat in feat_map:
     label = meta_dict[feat[0].split('/')[-1]]
     print(label)
-    train_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7], feat[8], feat[9], feat[10], feat[11], feat[12], feat[13], feat[14])))
+    train_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7], feat[8], feat[9], feat[10], feat[11], feat[12], feat[13], feat[14], feat[15], feat[16], feat[17])))
     labels.append(label)
 
 # Read testing set.
@@ -160,7 +166,7 @@ lbl_transf = le.transform(labels)
 
 # Split test/train set
 from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(train_data, lbl_transf, test_size=0.1, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(train_data, lbl_transf, test_size=0., random_state=42)
 
 # Initialize CatBoostClassifier
 # model = CatBoostClassifier(iterations=2, learning_rate=1, depth=2, loss_function='MultiClass')
@@ -180,4 +186,4 @@ preds_proba = model.predict_proba(X_test)
 acc = np.nonzero(np.transpose(preds)[0] - y_test)[0].shape[0] / y_test.shape[0]
 
 # save results
-catboost.CatBoostClassifier.save_model(model, 'model_50000iter_rate_003_depth7.cbm')
+catboost.CatBoostClassifier.save_model(model, 'model_5000iter_rate_003_depth6_norm2.cbm')

@@ -85,10 +85,11 @@ with open('result_norm.txt', 'w') as f:
         i = i + 1
 
 i=0
-with open('result_norm_aug.txt', 'w') as f:
+with open('result_norm_17_feat_aug.txt', 'w') as f:
     for feat in feat_map_test:
         name = feat[0].split('/')[-1]
         lbl = np.int(preds_test_aug[i][0])
+        print(lbl)
         if lbl == 8: # if unknown
             print(name, 0, le_aug.classes_[lbl],file=f)
         else:
