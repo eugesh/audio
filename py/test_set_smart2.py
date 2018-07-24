@@ -55,14 +55,22 @@ def read_all_and_calc_feat(dirname):
             #d_mfcc=librosa.feature.delta(norm(mfcc))
             #d_mfcc_hist = np.histogram(d_mfcc)
             # Hist stft
-            delta_stft = norm(librosa.feature.delta(chroma_stft))
-            d_stft_hist = np.histogram(delta_stft)
+            # delta_stft = norm(librosa.feature.delta(chroma_stft))
+            # d_stft_hist = np.histogram(delta_stft)
 
             mel = norm(librosa.feature.melspectrogram(y=y, sr=sr))
             mel_hist = np.histogram(mel)
+            # Onesets detection.
+            o_env = librosa.onset.onset_strength(y, sr=sr)
+            times = librosa.frames_to_time(np.arange(len(o_env)), sr=sr)
+            onset_frames = librosa.onset.onset_detect(onset_envelope=o_env, sr=sr)
+            os=[]
+            for o in o_env:
+                if o > 0.5:
+                    os.append(o)
 
-            feat_map.append([file, tempo, zcr[0].shape[0], beat_frames.shape[0], beat_frames.shape[0]*1e5/y.shape[0],
-                            chroma_stft_hist[0], chroma_cq_hist[0], spectral_centroid_hist[0], tonnetz_hist[0], y_harm_hist[0], y_perc_hist[0], mfcc_hist[0], d_stft_hist[0], mel_hist[0]])
+            feat_map.append([file, tempo, zcr[0].shape[0], beat_frames.shape[0], beat_frames.shape[0]*1e5/y.shape[0], o_env.shape[0], len(os),
+                            chroma_stft_hist[0], chroma_cq_hist[0], spectral_centroid_hist[0], tonnetz_hist[0], y_harm_hist[0], y_perc_hist[0], mfcc_hist[0], mel_hist[0]])
     return feat_map
 
 ## Load all audio files and calculate features.
@@ -104,7 +112,7 @@ for feat in feat_map_test:
     for lbl in lbl_map:
         if name.find(lbl) == 0:
             labels_test.append(lbl)
-            test_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7], feat[8], feat[9], feat[10], feat[11], feat[12], feat[13])))
+            test_data.append(np.hstack((feat[1], feat[2], feat[3], feat[4], feat[5], feat[6], feat[7], feat[8], feat[9], feat[10], feat[11], feat[12], feat[13], feat[14])))
 
 
 ##### testing
@@ -126,9 +134,6 @@ preds_proba_test = model.predict_proba(test_data)
 # Comparison.
 acc_test = np.nonzero(np.transpose(preds_test)[0] - lbl_test_transf)[0].shape[0] / len(labels_test)
 acc_test = 1 - acc_test
-
-acc_test_aug = np.nonzero(np.transpose(preds_test_aug)[0] - lbl_test_transf)[0].shape[0] / len(labels_test)
-
 # Build area under precision/prob(false alarm)
 true_prob = []
 for i in range(preds.shape[0]):
